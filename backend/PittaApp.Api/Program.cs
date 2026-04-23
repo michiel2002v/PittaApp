@@ -120,6 +120,7 @@ app.MapGet("/health", async (AppDbContext db) =>
 }).AllowAnonymous();
 
 app.MapUserEndpoints();
+app.MapCatalogEndpoints();
 
 // Microsoft.Identity.UI sign-in / sign-out controller actions.
 app.MapControllers();
