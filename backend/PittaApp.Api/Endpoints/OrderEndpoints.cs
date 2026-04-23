@@ -127,6 +127,69 @@ public static class OrderEndpoints
                 o.Notes, ToDto(o).Lines, o.TotalCents)));
         });
 
+        // Admin: toggle payment status.
+        admin.MapPost("/{id:guid}/pay", async (Guid id, AppDbContext db, CancellationToken ct) =>
+        {
+            var order = await db.Orders.FindAsync([id], ct);
+            if (order is null) return Results.NotFound();
+            order.IsPaid = true;
+            order.PaidAt = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync(ct);
+            return Results.Ok(new { order.Id, order.IsPaid });
+        });
+
+        admin.MapPost("/{id:guid}/unpay", async (Guid id, AppDbContext db, CancellationToken ct) =>
+        {
+            var order = await db.Orders.FindAsync([id], ct);
+            if (order is null) return Results.NotFound();
+            order.IsPaid = false;
+            order.PaidAt = null;
+            await db.SaveChangesAsync(ct);
+            return Results.Ok(new { order.Id, order.IsPaid });
+        });
+
+        // Admin: wanbetalers ranking.
+        admin.MapGet("/wanbetalers", async (AppDbContext db, CancellationToken ct) =>
+        {
+            var unpaid = await db.Orders
+                .Where(o => !o.IsPaid)
+                .Include(o => o.Lines)
+                .Include(o => o.User)
+                .ToListAsync(ct);
+
+            var ranking = unpaid
+                .GroupBy(o => new { o.UserId, o.User.DisplayName, o.User.Email })
+                .Select(g => new WanbetalerResponse(
+                    g.Key.DisplayName, g.Key.Email,
+                    g.Sum(o => o.TotalCents),
+                    g.Count(),
+                    g.Min(o => o.CreatedAt)))
+                .OrderByDescending(w => w.TotalOpenCents)
+                .ThenByDescending(w => w.UnpaidOrderCount)
+                .ToList();
+            return Results.Ok(ranking);
+        });
+
+        // User: my order history.
+        orders.MapGet("/mine", async (
+            AppDbContext db, CurrentUserService current, CancellationToken ct) =>
+        {
+            var user = await current.GetOrProvisionAsync(ct);
+            if (user is null) return Results.Unauthorized();
+
+            var myOrders = await db.Orders
+                .Where(o => o.UserId == user.Id)
+                .Include(o => o.Lines)
+                .Include(o => o.OrderRound)
+                .OrderByDescending(o => o.CreatedAt)
+                .Take(50)
+                .ToListAsync(ct);
+
+            return Results.Ok(myOrders.Select(o => new MyOrderHistoryResponse(
+                o.Id, o.OrderRound.DeliveryDate, o.IsPaid,
+                o.Notes, ToDto(o).Lines, o.TotalCents, o.CreatedAt)));
+        });
+
         return app;
     }
 
@@ -213,3 +276,19 @@ public record AdminOrderResponse(
     string? Notes,
     List<OrderLineResponse> Lines,
     int TotalCents);
+
+public record WanbetalerResponse(
+    string DisplayName,
+    string Email,
+    int TotalOpenCents,
+    int UnpaidOrderCount,
+    DateTimeOffset OldestUnpaidOrder);
+
+public record MyOrderHistoryResponse(
+    Guid Id,
+    DateOnly DeliveryDate,
+    bool IsPaid,
+    string? Notes,
+    List<OrderLineResponse> Lines,
+    int TotalCents,
+    DateTimeOffset CreatedAt);

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { CatalogAdmin } from './CatalogAdmin'
 import { OrderRoundAdmin } from './OrderRoundAdmin'
 import { PlaceOrder } from './PlaceOrder'
+import { MyOrderHistory } from './MyOrderHistory'
+import { AdminOrderOverview } from './AdminOrderOverview'
 
 interface MeResponse {
   id: string
@@ -140,6 +142,8 @@ export default function App() {
       {me && !me.iban && <IbanOnboarding onSaved={setMe} />}
       {me && me.iban && <Profile me={me} />}
       {me && me.iban && <PlaceOrder />}
+      {me && me.iban && <MyOrderHistory />}
+      {me && me.iban && me.isAdmin && <AdminOrderOverview />}
       {me && me.iban && me.isAdmin && <OrderRoundAdmin />}
       {me && me.iban && me.isAdmin && <CatalogAdmin />}
     </main>
