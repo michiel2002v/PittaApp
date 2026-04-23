@@ -109,6 +109,24 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await db.Database.MigrateAsync();
     await CatalogSeeder.SeedAsync(db);
+
+    // Ensure a default open order round exists for today at 20:00 Europe/Brussels.
+    var today = DateOnly.FromDateTime(DateTime.Today);
+    var existingToday = await db.OrderRounds.AnyAsync(r => r.DeliveryDate == today);
+    if (!existingToday)
+    {
+        var brussels = TimeZoneInfo.FindSystemTimeZoneById(
+            OperatingSystem.IsWindows() ? "Romance Standard Time" : "Europe/Brussels");
+        var localCutoff = new DateTime(today.Year, today.Month, today.Day, 20, 0, 0, DateTimeKind.Unspecified);
+        var cutoffOffset = new DateTimeOffset(localCutoff, brussels.GetUtcOffset(localCutoff));
+        db.OrderRounds.Add(new PittaApp.Api.Domain.OrderRound
+        {
+            DeliveryDate = today,
+            CutoffAt = cutoffOffset,
+            Status = PittaApp.Api.Domain.OrderRoundStatus.Open,
+        });
+        await db.SaveChangesAsync();
+    }
 }
 
 app.MapGet("/health", async (AppDbContext db) =>

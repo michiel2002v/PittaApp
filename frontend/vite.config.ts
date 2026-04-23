@@ -17,6 +17,9 @@ export default defineConfig({
         '/MicrosoftIdentity',
         '/me',
         '/admin',
+        '/orders',
+        '/order-rounds',
+        '/menu',
         '/health',
       ].map((path) => [
         path,
