@@ -257,52 +257,94 @@ export function PlaceOrder() {
           )}
 
           {/* Add a line */}
-          <fieldset style={{ border: '1px solid #ddd', padding: 12, borderRadius: 8, marginTop: 8 }}>
+          <fieldset style={{ border: '1px solid var(--color-border, #ddd)', padding: '1rem', borderRadius: 'var(--radius, 8px)', marginTop: 8 }}>
             <legend><strong>Item toevoegen</strong></legend>
-            <div style={rowStyle}>
-              <label>
-                Item
-                <select value={selItem} onChange={e => handleItemChange(e.target.value)} style={selectStyle}>
-                  <option value="">— kies —</option>
-                  {menu.items.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
-                </select>
-              </label>
-              {currentItem && (
-                <label>
-                  Maat
-                  <select value={selSize} onChange={e => setSelSize(e.target.value)} style={selectStyle}>
-                    <option value="">— kies —</option>
-                    {currentItem.sizes.map(s => (
-                      <option key={s.id} value={s.id}>{s.name} ({cents(s.priceCents)})</option>
-                    ))}
-                  </select>
-                </label>
-              )}
-              {currentItem && (
-                <label>
-                  Type
-                  <select value={selType} onChange={e => setSelType(e.target.value)} style={selectStyle}>
-                    <option value="">— kies —</option>
-                    {currentItem.types.map(t => (
-                      <option key={t.id} value={t.id}>
-                        {t.name} {t.surchargeCents !== 0 ? `(${t.surchargeCents > 0 ? '+' : ''}${cents(t.surchargeCents)})` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
+
+            {/* Item tiles */}
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: 6 }}>Kies een item</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {menu.items.map(i => (
+                  <button
+                    key={i.id} type="button"
+                    onClick={() => handleItemChange(i.id)}
+                    style={{
+                      ...tileStyle,
+                      ...(selItem === i.id ? tileActiveStyle : {}),
+                    }}
+                  >
+                    {i.name}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {/* Sauces */}
+            {/* Size tiles */}
             {currentItem && (
-              <div style={{ marginTop: 8 }}>
-                <strong>Sauzen:</strong>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: 6 }}>Maat</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {currentItem.sizes.map(s => (
+                    <button
+                      key={s.id} type="button"
+                      onClick={() => setSelSize(s.id)}
+                      style={{
+                        ...tileStyle,
+                        ...(selSize === s.id ? tileActiveStyle : {}),
+                      }}
+                    >
+                      <span>{s.name}</span>
+                      <span style={{ fontSize: '0.8rem', color: selSize === s.id ? 'rgba(255,255,255,0.85)' : 'var(--color-text-muted)' }}>{cents(s.priceCents)}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Type tiles */}
+            {currentItem && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: 6 }}>Type</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {currentItem.types.map(t => (
+                    <button
+                      key={t.id} type="button"
+                      onClick={() => setSelType(t.id)}
+                      style={{
+                        ...tileStyle,
+                        ...(selType === t.id ? tileActiveStyle : {}),
+                      }}
+                    >
+                      <span>{t.name}</span>
+                      {t.surchargeCents !== 0 && (
+                        <span style={{ fontSize: '0.8rem', color: selType === t.id ? 'rgba(255,255,255,0.85)' : 'var(--color-text-muted)' }}>
+                          {t.surchargeCents > 0 ? '+' : ''}{cents(t.surchargeCents)}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Sauce tiles */}
+            {currentItem && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: 6 }}>Sauzen (optioneel)</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   {menu.sauces.map(s => (
-                    <label key={s.id} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}>
-                      <input type="checkbox" checked={selSauces.includes(s.id)} onChange={() => toggleSauce(s.id)} />
+                    <button
+                      key={s.id} type="button"
+                      onClick={() => toggleSauce(s.id)}
+                      style={{
+                        ...tileStyle,
+                        ...(selSauces.includes(s.id) ? tileActiveStyle : {}),
+                        minWidth: 'auto',
+                        padding: '0.4rem 0.85rem',
+                      }}
+                    >
                       {s.name}
-                    </label>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -310,7 +352,7 @@ export function PlaceOrder() {
 
             {/* Remark */}
             {currentItem && (
-              <div style={{ marginTop: 8 }}>
+              <div style={{ marginTop: 4, marginBottom: 8 }}>
                 <label>
                   Opmerking
                   <input type="text" value={lineRemark} onChange={e => setLineRemark(e.target.value)}
@@ -365,9 +407,6 @@ const cardStyle: React.CSSProperties = {
 const tableStyle: React.CSSProperties = {
   width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem', marginBottom: 8,
 }
-const rowStyle: React.CSSProperties = {
-  display: 'flex', gap: 12, flexWrap: 'wrap',
-}
 const selectStyle: React.CSSProperties = {
   display: 'block', marginTop: 4, padding: '0.4rem', fontSize: '0.95rem',
 }
@@ -380,4 +419,18 @@ const dangerBtn: React.CSSProperties = {
 }
 const smallBtn: React.CSSProperties = {
   background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontSize: '1rem',
+}
+const tileStyle: React.CSSProperties = {
+  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+  padding: '0.6rem 1rem', minWidth: 90,
+  background: 'var(--color-surface-alt, #f9fafb)',
+  border: '2px solid var(--color-border, #e5e7eb)',
+  borderRadius: 'var(--radius, 8px)',
+  cursor: 'pointer', fontWeight: 600, fontSize: '0.92rem',
+  transition: 'all 0.15s ease',
+}
+const tileActiveStyle: React.CSSProperties = {
+  background: 'var(--color-primary, #c2410c)',
+  borderColor: 'var(--color-primary, #c2410c)',
+  color: '#fff',
 }

@@ -67,6 +67,10 @@ export function AdminOrderOverview() {
             <Stat label="Betaald" value={cents(paidRound)} tone="success" />
             <Stat label="Open" value={cents(totalRound - paidRound)} tone={totalRound - paidRound > 0 ? 'danger' : 'muted'} />
           </div>
+
+          {/* ── Copyable order summary for pitta shop ── */}
+          <OrderSummaryText orders={orders} rounds={rounds} selectedRound={selectedRound} />
+
           <table>
             <thead>
               <tr><th>Naam</th><th>Items</th><th style={{ textAlign: 'right' }}>Totaal</th><th>Betaald</th><th>Opmerking</th></tr>
@@ -106,6 +110,74 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: 'su
     <div style={{ padding: '0.75rem 1rem', background: 'var(--color-surface-alt)', borderRadius: 'var(--radius)', border: '1px solid var(--color-border)' }}>
       <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-muted)', fontWeight: 600 }}>{label}</div>
       <div style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color, marginTop: 2 }}>{value}</div>
+    </div>
+  )
+}
+
+function OrderSummaryText({ orders, rounds, selectedRound }: { orders: AdminOrder[]; rounds: Round[]; selectedRound: string }) {
+  const [copied, setCopied] = useState(false)
+
+  const round = rounds.find(r => r.id === selectedRound)
+  const dateStr = round
+    ? new Date(round.deliveryDate).toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' })
+    : ''
+
+  // Build aggregated line counts: "2× Pitta groot vlees, 1× Durum klein kip"
+  const lineCounts: Record<string, number> = {}
+  for (const o of orders) {
+    for (const l of o.lines) {
+      const desc = `${l.itemName} ${l.sizeName} ${l.typeName}${l.saucesText ? ` (${l.saucesText})` : ''}${l.remark ? ` — ${l.remark}` : ''}`
+      lineCounts[desc] = (lineCounts[desc] || 0) + 1
+    }
+  }
+
+  const lines = Object.entries(lineCounts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([desc, count]) => `${count}× ${desc}`)
+
+  const summary = [
+    `Bestelling Pitta Moestie — ${dateStr}`,
+    `${orders.length} bestelling${orders.length !== 1 ? 'en' : ''}`,
+    '',
+    ...lines,
+  ].join('\n')
+
+  const copy = async () => {
+    await navigator.clipboard.writeText(summary)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <div style={{
+      marginBottom: '1.25rem',
+      padding: '1rem',
+      background: 'var(--color-surface-alt)',
+      borderRadius: 'var(--radius)',
+      border: '1px solid var(--color-border)',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+        <strong>📝 Bestellingsoverzicht voor pitta zaak</strong>
+        <button type="button" className="btn-primary" onClick={copy} style={{ padding: '0.35rem 0.85rem', fontSize: '0.85rem' }}>
+          {copied ? '✓ Gekopieerd!' : '📋 Kopiëren'}
+        </button>
+      </div>
+      <textarea
+        readOnly
+        value={summary}
+        style={{
+          width: '100%',
+          minHeight: 120,
+          fontFamily: 'var(--font-mono)',
+          fontSize: '0.88rem',
+          padding: '0.75rem',
+          border: '1px solid var(--color-border)',
+          borderRadius: 'var(--radius)',
+          background: 'var(--color-surface)',
+          resize: 'vertical',
+        }}
+        onFocus={e => e.target.select()}
+      />
     </div>
   )
 }
