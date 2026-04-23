@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using PittaApp.Api.Data;
 using PittaApp.Api.Domain;
+using PittaApp.Api.Services;
 
 namespace PittaApp.Api.Endpoints;
 
@@ -76,7 +77,7 @@ public static class OrderRoundEndpoints
             return Results.Ok(ToDto(round, DateTimeOffset.UtcNow));
         });
 
-        admin.MapPost("/{id:guid}/deliver", async (Guid id, AppDbContext db, CancellationToken ct) =>
+        admin.MapPost("/{id:guid}/deliver", async (Guid id, AppDbContext db, TeamsNotificationService teams, CancellationToken ct) =>
         {
             var round = await db.OrderRounds.FindAsync([id], ct);
             if (round is null) return Results.NotFound();
@@ -85,6 +86,11 @@ public static class OrderRoundEndpoints
             round.Status = OrderRoundStatus.Delivered;
             round.DeliveredAt = DateTimeOffset.UtcNow;
             await db.SaveChangesAsync(ct);
+
+            // Send Teams notification
+            var orderCount = await db.Orders.CountAsync(o => o.OrderRoundId == round.Id, ct);
+            _ = teams.SendPittaArrivedAsync(round.DeliveryDate, orderCount, ct);
+
             return Results.Ok(ToDto(round, DateTimeOffset.UtcNow));
         });
 

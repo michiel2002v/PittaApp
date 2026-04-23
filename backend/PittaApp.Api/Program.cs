@@ -7,12 +7,14 @@ using Microsoft.Identity.Web.UI;
 using PittaApp.Api.Auth;
 using PittaApp.Api.Data;
 using PittaApp.Api.Endpoints;
+using PittaApp.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<CurrentUserService>();
+builder.Services.AddHttpClient<TeamsNotificationService>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")
