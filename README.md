@@ -1,3 +1,57 @@
+# PittaApp 🥙
+
+Web app to replace the Pitta Moestie Excel — orders, items, payments, debt tracking.
+
+## Quick start (Docker)
+
+```powershell
+copy .env.example .env
+docker compose up --build
+```
+
+- Frontend: http://localhost:5173
+- Backend:  http://localhost:5080/health
+- Postgres: localhost:5432 (user/pass: `pittaapp`)
+
+## Local development (SSO login flow)
+
+You need: .NET 10 SDK, Node 22, PostgreSQL via `docker compose up -d db`.
+
+```powershell
+# Backend (HTTP on 7227)
+cd backend\PittaApp.Api
+dotnet run
+
+# Frontend (HTTP on 48971; in a separate terminal)
+cd frontend
+npm install
+npm run dev
+```
+
+Open <http://localhost:48971>.
+
+### Entra ID app registration (Web platform)
+
+Under **Authentication → Add a platform → Web**, add:
+
+- Redirect URIs:
+  - `http://localhost:48971/signin-oidc`
+  - `http://localhost:7227/signin-oidc`
+- Front-channel / post-logout redirect URIs:
+  - `http://localhost:48971/signout-callback-oidc`
+  - `http://localhost:7227/signout-callback-oidc`
+
+Client secret is stored locally via `dotnet user-secrets` (key `AzureAd:ClientSecret`).
+
+## Project layout
+
+- `backend/` — .NET 10 ASP.NET Core minimal API
+- `frontend/` — React + TypeScript (Vite)
+- `docs/features/` — feature specifications (SSDLC)
+- `docker-compose.yml` — full local stack
+
+---
+
 # Capture.Agents.Template
 
 > Monorepo template for GitHub Copilot agents, skills, and SSDLC rules.
