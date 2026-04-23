@@ -13,6 +13,8 @@ public class AppDbContext : DbContext
     public DbSet<ItemType> ItemTypes => Set<ItemType>();
     public DbSet<Sauce> Sauces => Set<Sauce>();
     public DbSet<OrderRound> OrderRounds => Set<OrderRound>();
+    public DbSet<Order> Orders => Set<Order>();
+    public DbSet<OrderLine> OrderLines => Set<OrderLine>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -40,6 +42,17 @@ public class AppDbContext : DbContext
             b.HasIndex(r => r.DeliveryDate);
             b.HasIndex(r => r.Status);
             b.Property(r => r.Status).HasConversion<int>();
+        });
+
+        modelBuilder.Entity<Order>(b =>
+        {
+            b.HasOne(o => o.User).WithMany().HasForeignKey(o => o.UserId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(o => o.OrderRound).WithMany().HasForeignKey(o => o.OrderRoundId).OnDelete(DeleteBehavior.Restrict);
+            b.HasMany(o => o.Lines).WithOne(l => l.Order).HasForeignKey(l => l.OrderId).OnDelete(DeleteBehavior.Cascade);
+            b.Property(o => o.Status).HasConversion<int>();
+            b.HasIndex(o => new { o.OrderRoundId, o.UserId }).IsUnique();
+            b.HasIndex(o => o.UserId);
+            b.HasIndex(o => o.IsPaid);
         });
     }
 }

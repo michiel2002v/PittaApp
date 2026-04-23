@@ -106,6 +106,7 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await db.Database.MigrateAsync();
+    await CatalogSeeder.SeedAsync(db);
 }
 
 app.MapGet("/health", async (AppDbContext db) =>
@@ -122,6 +123,7 @@ app.MapGet("/health", async (AppDbContext db) =>
 app.MapUserEndpoints();
 app.MapCatalogEndpoints();
 app.MapOrderRoundEndpoints();
+app.MapOrderEndpoints();
 
 // Microsoft.Identity.UI sign-in / sign-out controller actions.
 app.MapControllers();
