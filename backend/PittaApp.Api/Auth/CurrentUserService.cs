@@ -12,13 +12,21 @@ public class CurrentUserService
 {
     private readonly Data.AppDbContext _db;
     private readonly IHttpContextAccessor _httpContext;
-    private readonly string? _bootstrapAdminEmail;
+    private readonly HashSet<string> _bootstrapAdminEmails;
 
     public CurrentUserService(Data.AppDbContext db, IHttpContextAccessor httpContext, IConfiguration config)
     {
         _db = db;
         _httpContext = httpContext;
-        _bootstrapAdminEmail = config["Auth:BootstrapAdminEmail"]?.Trim().ToLowerInvariant();
+        var emails = new List<string>();
+        var single = config["Auth:BootstrapAdminEmail"];
+        if (!string.IsNullOrWhiteSpace(single)) emails.Add(single);
+        var list = config.GetSection("Auth:BootstrapAdminEmails").Get<string[]>();
+        if (list is not null) emails.AddRange(list);
+        _bootstrapAdminEmails = emails
+            .Where(e => !string.IsNullOrWhiteSpace(e))
+            .Select(e => e.Trim().ToLowerInvariant())
+            .ToHashSet();
     }
 
     /// <summary>Returns the current user, provisioning them on first call. Returns null if no JWT principal is present.</summary>
@@ -45,17 +53,22 @@ public class CurrentUserService
                 AzureAdObjectId = oid,
                 Email = email,
                 DisplayName = displayName,
-                IsAdmin = !string.IsNullOrEmpty(_bootstrapAdminEmail)
-                    && string.Equals(email, _bootstrapAdminEmail, StringComparison.OrdinalIgnoreCase),
+                IsAdmin = _bootstrapAdminEmails.Contains(email.Trim().ToLowerInvariant()),
             };
             _db.Users.Add(user);
             await _db.SaveChangesAsync(ct);
         }
-        else if (user.Email != email || user.DisplayName != displayName)
+        else
         {
-            user.Email = email;
-            user.DisplayName = displayName;
-            await _db.SaveChangesAsync(ct);
+            var changed = false;
+            if (user.Email != email) { user.Email = email; changed = true; }
+            if (user.DisplayName != displayName) { user.DisplayName = displayName; changed = true; }
+            if (!user.IsAdmin && _bootstrapAdminEmails.Contains(email.Trim().ToLowerInvariant()))
+            {
+                user.IsAdmin = true;
+                changed = true;
+            }
+            if (changed) await _db.SaveChangesAsync(ct);
         }
 
         return user;
