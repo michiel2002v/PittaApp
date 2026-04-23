@@ -63,32 +63,44 @@ export function AdminPanel() {
     e.target.value = ''
   }
 
+  const tabs: { key: typeof tab; label: string }[] = [
+    { key: 'users', label: '👥 Gebruikers' },
+    { key: 'ranking', label: '🏴‍☠️ Wanbetalers' },
+    { key: 'imports', label: '🏦 KBC imports' },
+    { key: 'print', label: '🖨️ Dag overzicht' },
+  ]
+
   return (
     <section>
-      <h2>⚙️ Admin Panel</h2>
-      {msg && <p style={{ background: '#fef3c7', padding: 8, borderRadius: 6 }}>{msg}</p>}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-        <button onClick={() => setTab('users')} style={{ ...tb, fontWeight: tab === 'users' ? 'bold' : 'normal' }}>👥 Gebruikers</button>
-        <button onClick={() => setTab('ranking')} style={{ ...tb, fontWeight: tab === 'ranking' ? 'bold' : 'normal' }}>🏴‍☠️ Wanbetalers</button>
-        <button onClick={() => setTab('imports')} style={{ ...tb, fontWeight: tab === 'imports' ? 'bold' : 'normal' }}>🏦 KBC imports</button>
-        <button onClick={() => setTab('print')} style={{ ...tb, fontWeight: tab === 'print' ? 'bold' : 'normal' }}>🖨️ Dag overzicht</button>
-      </div>
+      <h2>⚙️ Admin panel</h2>
+      {msg && <div className="alert alert-info">{msg}</div>}
+
+      <nav className="tab-nav" style={{ marginBottom: '1.5rem' }}>
+        {tabs.map(t => (
+          <button key={t.key} type="button" className={tab === t.key ? 'active' : ''} onClick={() => setTab(t.key)}>
+            {t.label}
+          </button>
+        ))}
+      </nav>
 
       {tab === 'users' && (
-        <table style={tbl}>
-          <thead><tr><th>Naam</th><th>Email</th><th>IBAN</th><th>Saldo</th><th>Acties</th></tr></thead>
+        <table>
+          <thead><tr><th>Naam</th><th>E-mail</th><th>IBAN</th><th style={{ textAlign: 'right' }}>Saldo</th><th>Acties</th></tr></thead>
           <tbody>
             {users.map(u => (
               <tr key={u.id}>
-                <td>{u.displayName}{u.isAdmin ? ' 👑' : ''}</td>
-                <td>{u.email}</td>
+                <td>
+                  <strong>{u.displayName}</strong>
+                  {u.isAdmin && <span className="badge badge-admin" style={{ marginLeft: 6 }}>👑</span>}
+                </td>
+                <td style={{ color: 'var(--color-text-muted)' }}>{u.email}</td>
                 <td><code>{u.iban ?? '—'}</code></td>
-                <td style={{ color: u.balanceCents > 0 ? 'red' : u.balanceCents < 0 ? 'green' : 'inherit', fontWeight: 'bold' }}>
+                <td style={{ textAlign: 'right', fontWeight: 600, fontFamily: 'var(--font-mono)', color: u.balanceCents > 0 ? 'var(--color-danger)' : u.balanceCents < 0 ? 'var(--color-success)' : 'inherit' }}>
                   {cents(u.balanceCents)}
                 </td>
                 <td>
-                  <button type="button" style={smBtn} onClick={() => editIban(u)}>IBAN</button>{' '}
-                  <button type="button" style={smBtn} onClick={() => adjustBalance(u)}>€ ±</button>
+                  <button type="button" onClick={() => editIban(u)} style={{ padding: '0.25rem 0.6rem', fontSize: '0.8rem' }}>IBAN</button>{' '}
+                  <button type="button" onClick={() => adjustBalance(u)} style={{ padding: '0.25rem 0.6rem', fontSize: '0.8rem' }}>€ ±</button>
                 </td>
               </tr>
             ))}
@@ -97,36 +109,41 @@ export function AdminPanel() {
       )}
 
       {tab === 'ranking' && (
-        ranking.length === 0 ? <p>Geen wanbetalers! 🎉</p> : (
-          <table style={tbl}>
-            <thead><tr><th>#</th><th>Naam</th><th>Schuld</th><th>Rondes</th><th>Oudste</th></tr></thead>
-            <tbody>
-              {ranking.map((r, i) => (
-                <tr key={r.email}>
-                  <td>{i + 1}</td><td>{r.displayName}</td>
-                  <td style={{ color: 'red', fontWeight: 'bold' }}>{cents(r.balanceCents)}</td>
-                  <td>{r.unpaidRoundCount}</td>
-                  <td>{r.oldestDebitDate ? new Date(r.oldestDebitDate).toLocaleDateString('nl-BE') : '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )
+        ranking.length === 0
+          ? <div className="alert alert-success">🎉 Geen wanbetalers! Iedereen is netjes.</div>
+          : (
+            <table>
+              <thead><tr><th>#</th><th>Naam</th><th style={{ textAlign: 'right' }}>Openstaand</th><th>Rondes</th><th>Oudste schuld</th></tr></thead>
+              <tbody>
+                {ranking.map((r, i) => (
+                  <tr key={r.email}>
+                    <td><span className="badge badge-warning">#{i + 1}</span></td>
+                    <td><strong>{r.displayName}</strong><div style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>{r.email}</div></td>
+                    <td style={{ textAlign: 'right', color: 'var(--color-danger)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{cents(r.balanceCents)}</td>
+                    <td>{r.unpaidRoundCount}</td>
+                    <td style={{ color: 'var(--color-text-muted)' }}>{r.oldestDebitDate ? new Date(r.oldestDebitDate).toLocaleDateString('nl-BE') : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )
       )}
 
       {tab === 'imports' && (
         <>
-          <p>Upload een KBC CSV. Een betaling wordt gematcht op IBAN + "PITTA"/"PITA" in mededeling.</p>
-          <input type="file" accept=".csv" onChange={uploadCsv} style={{ marginBottom: 12 }} />
-          <table style={tbl}>
-            <thead><tr><th>Bestand</th><th>Datum</th><th>Matched</th><th>Skipped</th></tr></thead>
+          <p style={{ color: 'var(--color-text-muted)' }}>Upload een KBC CSV-export. Betalingen worden gematcht op IBAN + "PITTA"/"PITA" in de vrije mededeling.</p>
+          <div style={{ marginBottom: '1.25rem', padding: '1rem', background: 'var(--color-surface-alt)', borderRadius: 'var(--radius)', border: '1px dashed var(--color-border-strong)' }}>
+            <input type="file" accept=".csv" onChange={uploadCsv} />
+          </div>
+          <table>
+            <thead><tr><th>Bestand</th><th>Datum</th><th style={{ textAlign: 'right' }}>Gematcht</th><th style={{ textAlign: 'right' }}>Overgeslagen</th></tr></thead>
             <tbody>
               {imports.map(i => (
                 <tr key={i.id}>
-                  <td>{i.fileName}</td>
-                  <td>{new Date(i.uploadedAt).toLocaleString('nl-BE')}</td>
-                  <td style={{ color: 'green' }}>{i.matchedCount}</td>
-                  <td>{i.skippedCount}</td>
+                  <td><code>{i.fileName}</code></td>
+                  <td style={{ color: 'var(--color-text-muted)' }}>{new Date(i.uploadedAt).toLocaleString('nl-BE')}</td>
+                  <td style={{ textAlign: 'right' }}><span className="badge badge-success">✓ {i.matchedCount}</span></td>
+                  <td style={{ textAlign: 'right', color: 'var(--color-text-muted)' }}>{i.skippedCount}</td>
                 </tr>
               ))}
             </tbody>
@@ -150,32 +167,60 @@ function DaySummary() {
 
   return (
     <>
-      <label>Datum: <input type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
-      <button type="button" onClick={load} style={{ ...tb, marginLeft: 8 }}>Laden</button>
+      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
+        <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          Datum:
+          <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ width: 'auto' }} />
+        </label>
+        <button type="button" className="btn-primary" onClick={load}>Laden</button>
+      </div>
       {data && (
-        <div style={{ marginTop: 12 }}>
-          <h3>📋 Samenvatting voor {data.date}</h3>
-          <p>{data.totalOrders} bestellingen — Totaal {cents(data.totalCents)}</p>
-          <h4>Voor de pitta-zaak:</h4>
-          <ul>
-            {data.summary.map((s, i) => (
-              <li key={i}><strong>{s.count}x</strong> {s.itemName} {s.sizeName} {s.typeName}</li>
-            ))}
-          </ul>
-          <h4>Per besteller:</h4>
-          <ul>
+        <div className="print-section">
+          <div style={{ padding: '1rem 1.25rem', background: 'linear-gradient(135deg, var(--color-primary-soft) 0%, var(--color-accent-soft) 100%)', borderRadius: 'var(--radius)', marginBottom: '1.25rem' }}>
+            <h3 style={{ margin: 0 }}>📋 Samenvatting voor {new Date(data.date).toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' })}</h3>
+            <div style={{ color: 'var(--color-text-muted)', marginTop: 4 }}>
+              <strong>{data.totalOrders}</strong> bestellingen · totaal <strong>{cents(data.totalCents)}</strong>
+            </div>
+          </div>
+
+          <h4>🥙 Voor de pitta-zaak</h4>
+          <table style={{ marginBottom: '1.5rem' }}>
+            <tbody>
+              {data.summary.map((s, i) => (
+                <tr key={i}>
+                  <td style={{ width: 60, textAlign: 'right', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--color-primary)' }}>{s.count}×</td>
+                  <td>{s.itemName} {s.sizeName} <span style={{ color: 'var(--color-text-muted)' }}>{s.typeName}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <h4>👥 Per besteller</h4>
+          <div style={{ display: 'grid', gap: '0.75rem' }}>
             {data.orders.map(o => (
-              <li key={o.id}>
-                <strong>{o.user}</strong> — {cents(o.totalCents)} {o.isPaid ? '✅' : '❌'}
-                <ul>
+              <div key={o.id} style={{ padding: '0.75rem 1rem', background: 'var(--color-surface-alt)', borderRadius: 'var(--radius)', border: '1px solid var(--color-border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                  <strong>{o.user}</strong>
+                  <div>
+                    <span style={{ fontFamily: 'var(--font-mono)', marginRight: 8 }}>{cents(o.totalCents)}</span>
+                    {o.isPaid
+                      ? <span className="badge badge-success">✓ Betaald</span>
+                      : <span className="badge badge-warning">Openstaand</span>}
+                  </div>
+                </div>
+                <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.9rem', color: 'var(--color-text-muted)' }}>
                   {o.lines.map((l, i) => (
-                    <li key={i}>{l.itemName} {l.sizeName} {l.typeName} {l.saucesText ? `(${l.saucesText})` : ''} {l.remark ? `— ${l.remark}` : ''}</li>
+                    <li key={i}>
+                      {l.itemName} {l.sizeName} {l.typeName}
+                      {l.saucesText ? <> · <em>{l.saucesText}</em></> : null}
+                      {l.remark ? <> — <em>{l.remark}</em></> : null}
+                    </li>
                   ))}
                 </ul>
-              </li>
+              </div>
             ))}
-          </ul>
-          <button type="button" onClick={() => window.print()} style={tb}>🖨️ Print</button>
+          </div>
+          <button type="button" className="btn-primary" onClick={() => window.print()} style={{ marginTop: '1.25rem' }}>🖨️ Print</button>
         </div>
       )}
     </>
@@ -190,6 +235,4 @@ interface DaySummaryData {
   }[]
 }
 
-const tb: React.CSSProperties = { padding: '0.4rem 0.8rem', background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: 6, cursor: 'pointer' }
-const tbl: React.CSSProperties = { width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }
-const smBtn: React.CSSProperties = { padding: '0.2rem 0.5rem', fontSize: '0.8rem', cursor: 'pointer', border: '1px solid #ccc', borderRadius: 4 }
+

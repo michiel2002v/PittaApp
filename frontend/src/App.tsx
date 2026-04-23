@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { CatalogAdmin } from './CatalogAdmin'
 import { OrderRoundAdmin } from './OrderRoundAdmin'
 import { PlaceOrder } from './PlaceOrder'
@@ -22,22 +22,34 @@ async function api(path: string, init: RequestInit = {}): Promise<Response> {
   return fetch(path, { ...init, headers, credentials: 'include' })
 }
 
+// ─────────────────────────────────────────────────────────────
+// Login
+// ─────────────────────────────────────────────────────────────
 function LoginScreen() {
   const signIn = () => {
     const returnUrl = encodeURIComponent(window.location.pathname + window.location.search)
     window.location.href = `/MicrosoftIdentity/Account/SignIn?returnUrl=${returnUrl}`
   }
   return (
-    <main style={pageStyle}>
-      <h1>🥙 Pitta Moestie</h1>
-      <p>Log in met je Vintecc-account om te beginnen.</p>
-      <button type="button" style={primaryButton} onClick={signIn}>
-        Sign in with Microsoft
-      </button>
+    <main>
+      <section className="login-card">
+        <div className="brand-mark">🥙</div>
+        <h1>Pitta Moestie</h1>
+        <p style={{ color: 'var(--color-text-muted)', marginBottom: '1.5rem' }}>
+          De stijlvolste manier om te bestellen met je collega's.<br />
+          Log in met je Vintecc-account.
+        </p>
+        <button type="button" className="btn-primary" onClick={signIn}>
+          Aanmelden met Microsoft →
+        </button>
+      </section>
     </main>
   )
 }
 
+// ─────────────────────────────────────────────────────────────
+// IBAN onboarding
+// ─────────────────────────────────────────────────────────────
 function IbanOnboarding({ onSaved }: { onSaved: (me: MeResponse) => void }) {
   const [iban, setIban] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -48,18 +60,9 @@ function IbanOnboarding({ onSaved }: { onSaved: (me: MeResponse) => void }) {
     setSubmitting(true)
     setError(null)
     try {
-      const res = await api('/me/iban', {
-        method: 'PUT',
-        body: JSON.stringify({ iban }),
-      })
-      if (res.status === 422) {
-        setError('Ongeldig IBAN-nummer (MOD-97 controle mislukt).')
-        return
-      }
-      if (res.status === 409) {
-        setError('Dit IBAN is al geregistreerd door een andere gebruiker.')
-        return
-      }
+      const res = await api('/me/iban', { method: 'PUT', body: JSON.stringify({ iban }) })
+      if (res.status === 422) { setError('Ongeldig IBAN-nummer (MOD-97 controle mislukt).'); return }
+      if (res.status === 409) { setError('Dit IBAN is al geregistreerd door een andere gebruiker.'); return }
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       onSaved((await res.json()) as MeResponse)
     } catch (err) {
@@ -71,10 +74,10 @@ function IbanOnboarding({ onSaved }: { onSaved: (me: MeResponse) => void }) {
 
   return (
     <section>
-      <h2>Welkom! Eén ding nog…</h2>
-      <p>Voer je IBAN in. Dit gebruiken we om je betalingen automatisch te koppelen.</p>
-      <form onSubmit={submit}>
-        <label style={{ display: 'block', marginBottom: 8 }}>
+      <h2>👋 Welkom! Eén ding nog…</h2>
+      <p>Voer je IBAN in. We gebruiken dit om je betalingen automatisch te matchen via KBC.</p>
+      <form onSubmit={submit} style={{ marginTop: '1rem' }}>
+        <label style={{ display: 'block', marginBottom: '0.75rem' }}>
           IBAN
           <input
             type="text"
@@ -83,27 +86,52 @@ function IbanOnboarding({ onSaved }: { onSaved: (me: MeResponse) => void }) {
             placeholder="BE68 5390 0754 7034"
             autoComplete="off"
             required
-            style={inputStyle}
+            style={{ fontFamily: 'var(--font-mono)', marginTop: 4 }}
           />
         </label>
-        {error && <p style={{ color: 'crimson' }}>{error}</p>}
-        <button type="submit" disabled={submitting} style={primaryButton}>
-          {submitting ? 'Opslaan…' : 'Opslaan'}
+        {error && <div className="alert alert-error">{error}</div>}
+        <button type="submit" disabled={submitting} className="btn-primary">
+          {submitting ? 'Bezig…' : 'IBAN opslaan'}
         </button>
       </form>
     </section>
   )
 }
 
-function Profile({ me, onRefresh }: { me: MeResponse; onRefresh: () => void }) {
-  const [balance, setBalance] = useState<number | null>(null)
+// ─────────────────────────────────────────────────────────────
+// Balance hero card
+// ─────────────────────────────────────────────────────────────
+function BalanceHero({ balanceCents }: { balanceCents: number | null }) {
+  if (balanceCents === null) return null
+  const b = balanceCents
+  const variant = b > 0 ? 'debt' : b < 0 ? 'credit' : ''
+  const emoji = b > 0 ? '💸' : b < 0 ? '💰' : '✨'
+  const label = b > 0 ? 'Openstaand bedrag' : b < 0 ? 'Jouw tegoed' : 'Saldo'
+  const hint = b > 0
+    ? 'Schrijf dit bedrag over met "PITTA" in de mededeling.'
+    : b < 0
+    ? 'Je hebt nog een tegoed staan voor een volgende ronde.'
+    : 'Keurig netjes — niks openstaand. 🎉'
+
+  return (
+    <div className={`balance-hero ${variant}`}>
+      <div>
+        <div className="label">{label}</div>
+        <div className="amount">€{(Math.abs(b) / 100).toFixed(2)}</div>
+        <div className="hint">{hint}</div>
+      </div>
+      <div className="emoji" aria-hidden>{emoji}</div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// Profile card
+// ─────────────────────────────────────────────────────────────
+function ProfileCard({ me, onRefresh }: { me: MeResponse; onRefresh: () => void }) {
   const [editing, setEditing] = useState(false)
   const [newIban, setNewIban] = useState(me.iban || '')
   const [err, setErr] = useState<string | null>(null)
-
-  useEffect(() => {
-    api('/me/balance').then(r => r.ok ? r.json() : null).then(d => setBalance(d?.balanceCents ?? 0))
-  }, [])
 
   const saveIban = async () => {
     setErr(null)
@@ -115,119 +143,173 @@ function Profile({ me, onRefresh }: { me: MeResponse; onRefresh: () => void }) {
     }
   }
 
-  const signOut = () => {
-    window.location.href = '/MicrosoftIdentity/Account/SignOut'
-  }
-  const b = balance ?? 0
   return (
     <section>
-      <h2>Profiel</h2>
-      {balance !== null && (
-        <div style={{
-          padding: '1rem', marginBottom: 12, borderRadius: 8,
-          background: b > 0 ? '#fee2e2' : b < 0 ? '#d1fae5' : '#f3f4f6',
-          fontSize: '1.1rem', fontWeight: 'bold',
-        }}>
-          💶 Saldo: €{(Math.abs(b) / 100).toFixed(2)} {b > 0 ? '(te betalen)' : b < 0 ? '(tegoed)' : '(netjes!)'}
-        </div>
-      )}
-      <ul style={{ lineHeight: 1.8 }}>
-        <li><strong>Naam:</strong> {me.displayName}</li>
-        <li><strong>E-mail:</strong> {me.email}</li>
-        <li>
-          <strong>IBAN:</strong>{' '}
+      <h2>👤 Profiel</h2>
+      <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', rowGap: '0.75rem', columnGap: '1rem', alignItems: 'center' }}>
+        <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>Naam</div>
+        <div style={{ fontWeight: 500 }}>{me.displayName}</div>
+
+        <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>E-mail</div>
+        <div>{me.email}</div>
+
+        <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>IBAN</div>
+        <div>
           {editing ? (
-            <>
-              <input value={newIban} onChange={e => setNewIban(e.target.value)} style={{ fontFamily: 'monospace', padding: 4 }} />
-              <button type="button" style={{ ...secondaryButton, padding: '0.3rem 0.6rem', marginLeft: 6 }} onClick={saveIban}>Opslaan</button>
-              <button type="button" style={{ ...secondaryButton, padding: '0.3rem 0.6rem', marginLeft: 4 }} onClick={() => setEditing(false)}>X</button>
-              {err && <div style={{ color: 'crimson' }}>{err}</div>}
-            </>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              <input
+                value={newIban}
+                onChange={e => setNewIban(e.target.value)}
+                style={{ fontFamily: 'var(--font-mono)', maxWidth: 280 }}
+              />
+              <button type="button" className="btn-primary" onClick={saveIban}>Opslaan</button>
+              <button type="button" onClick={() => setEditing(false)}>Annuleren</button>
+            </div>
           ) : (
-            <>
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
               <code>{formatIban(me.iban)}</code>
-              <button type="button" style={{ ...secondaryButton, padding: '0.2rem 0.5rem', marginLeft: 8, fontSize: '0.85rem' }} onClick={() => setEditing(true)}>Wijzig</button>
-            </>
+              <button type="button" onClick={() => setEditing(true)} style={{ padding: '0.3rem 0.7rem', fontSize: '0.85rem' }}>Wijzigen</button>
+            </div>
           )}
-        </li>
-        <li><strong>Rol:</strong> {me.isAdmin ? '👑 Admin' : 'Gebruiker'}</li>
-      </ul>
-      <button type="button" style={secondaryButton} onClick={signOut}>
-        Uitloggen
-      </button>
+          {err && <div className="alert alert-error" style={{ marginTop: 8 }}>{err}</div>}
+        </div>
+
+        <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>Rol</div>
+        <div>
+          {me.isAdmin
+            ? <span className="badge badge-admin">👑 Admin</span>
+            : <span className="badge badge-info">Gebruiker</span>}
+        </div>
+      </div>
     </section>
   )
 }
+
+// ─────────────────────────────────────────────────────────────
+// App shell
+// ─────────────────────────────────────────────────────────────
+type Tab = 'order' | 'history' | 'admin'
 
 export default function App() {
   const [me, setMe] = useState<MeResponse | null>(null)
   const [unauthenticated, setUnauthenticated] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [balance, setBalance] = useState<number | null>(null)
+  const [tab, setTab] = useState<Tab>('order')
+
+  const loadMe = () => api('/me/').then(r => r.json()).then(setMe)
 
   useEffect(() => {
     api('/me/')
       .then(async (r) => {
-        if (r.status === 401) {
-          setUnauthenticated(true)
-          return
-        }
+        if (r.status === 401) { setUnauthenticated(true); return }
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         setMe((await r.json()) as MeResponse)
       })
       .catch((e) => setError(String(e)))
   }, [])
 
+  useEffect(() => {
+    if (me && me.iban) {
+      api('/me/balance').then(r => r.ok ? r.json() : null).then(d => setBalance(d?.balanceCents ?? 0))
+    }
+  }, [me])
+
+  const initials = useMemo(() => {
+    if (!me) return ''
+    return me.displayName
+      .split(/\s+/)
+      .map(s => s[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join('')
+      .toUpperCase()
+  }, [me])
+
   if (unauthenticated) return <LoginScreen />
 
+  const signOut = () => { window.location.href = '/MicrosoftIdentity/Account/SignOut' }
+  const ready = !!me && !!me.iban
+
   return (
-    <main style={pageStyle}>
-      <h1>🥙 Pitta Moestie</h1>
-      {error && <p style={{ color: 'crimson' }}>API-fout: {error}</p>}
-      {!me && !error && <p>Bezig met laden…</p>}
-      {me && !me.iban && <IbanOnboarding onSaved={setMe} />}
-      {me && me.iban && <Profile me={me} onRefresh={() => api('/me/').then(r => r.json()).then(setMe)} />}
-      {me && me.iban && <PlaceOrder />}
-      {me && me.iban && <MyOrderHistory />}
-      {me && me.iban && me.isAdmin && <AdminOrderOverview />}
-      {me && me.iban && me.isAdmin && <OrderRoundAdmin />}
-      {me && me.iban && me.isAdmin && <CatalogAdmin />}
-      {me && me.iban && me.isAdmin && <AdminPanel />}
-    </main>
+    <div className="app-shell">
+      <header className="app-header">
+        <div className="app-header-inner">
+          <div className="brand">
+            <div className="brand-mark">🥙</div>
+            <div>Pitta <em>Moestie</em></div>
+          </div>
+          {me && (
+            <div className="user-pill">
+              <span className="name">{me.displayName}{me.isAdmin ? ' 👑' : ''}</span>
+              <div className="avatar" title={me.email}>{initials}</div>
+              <button type="button" onClick={signOut} style={{ padding: '0.3rem 0.7rem', fontSize: '0.8rem' }}>
+                Uitloggen
+              </button>
+            </div>
+          )}
+        </div>
+      </header>
+
+      <main>
+        {error && <div className="alert alert-error">API-fout: {error}</div>}
+
+        {!me && !error && (
+          <section style={{ textAlign: 'center', padding: '3rem' }}>
+            <div className="loading-dots"><span /><span /><span /></div>
+            <p style={{ marginTop: '1rem', color: 'var(--color-text-muted)' }}>Bezig met laden…</p>
+          </section>
+        )}
+
+        {me && !me.iban && <IbanOnboarding onSaved={setMe} />}
+
+        {ready && (
+          <>
+            <BalanceHero balanceCents={balance} />
+
+            <nav className="tab-nav">
+              <button type="button" className={tab === 'order' ? 'active' : ''} onClick={() => setTab('order')}>
+                🥙 Bestellen
+              </button>
+              <button type="button" className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>
+                📜 Mijn geschiedenis
+              </button>
+              {me!.isAdmin && (
+                <button type="button" className={tab === 'admin' ? 'active' : ''} onClick={() => setTab('admin')}>
+                  ⚙️ Admin
+                </button>
+              )}
+            </nav>
+
+            {tab === 'order' && (
+              <>
+                <PlaceOrder />
+                <ProfileCard me={me!} onRefresh={loadMe} />
+              </>
+            )}
+
+            {tab === 'history' && <MyOrderHistory />}
+
+            {tab === 'admin' && me!.isAdmin && (
+              <>
+                <AdminOrderOverview />
+                <OrderRoundAdmin />
+                <CatalogAdmin />
+                <AdminPanel />
+              </>
+            )}
+          </>
+        )}
+      </main>
+
+      <footer style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-subtle)', fontSize: '0.85rem' }}>
+        Made with 🌶️ at Vintecc
+      </footer>
+    </div>
   )
 }
 
 function formatIban(iban: string | null): string {
   if (!iban) return '—'
   return iban.replace(/(.{4})/g, '$1 ').trim()
-}
-
-const pageStyle: React.CSSProperties = {
-  fontFamily: 'system-ui, sans-serif',
-  padding: '2rem',
-  maxWidth: 720,
-  margin: '0 auto',
-}
-
-const inputStyle: React.CSSProperties = {
-  display: 'block',
-  width: '100%',
-  marginTop: 4,
-  padding: '0.5rem',
-  fontSize: '1rem',
-  fontFamily: 'monospace',
-}
-
-const primaryButton: React.CSSProperties = {
-  padding: '0.6rem 1.2rem',
-  fontSize: '1rem',
-  background: '#2563eb',
-  color: 'white',
-  border: 'none',
-  borderRadius: 6,
-  cursor: 'pointer',
-}
-
-const secondaryButton: React.CSSProperties = {
-  ...primaryButton,
-  background: '#6b7280',
 }
