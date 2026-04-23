@@ -44,6 +44,13 @@ builder.Services.Configure<OpenIdConnectOptions>(
     OpenIdConnectDefaults.AuthenticationScheme,
     opts =>
     {
+        // Use authorization code flow (no implicit id_token). Requires a client secret,
+        // set via: dotnet user-secrets set "AzureAd:ClientSecret" "..."
+        opts.ResponseType = "code";
+        opts.ResponseMode = "form_post";
+        opts.UsePkce = true;
+        opts.SaveTokens = true;
+
         var originalRedirectToIdp = opts.Events.OnRedirectToIdentityProvider;
         opts.Events.OnRedirectToIdentityProvider = async ctx =>
         {
