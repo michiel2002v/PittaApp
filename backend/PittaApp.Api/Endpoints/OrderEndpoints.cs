@@ -84,8 +84,19 @@ public static class OrderEndpoints
             var buildResult = await BuildLinesAsync(db, req.Lines, ct);
             if (buildResult.Error is not null) return buildResult.Error;
 
-            db.OrderLines.RemoveRange(order.Lines);
-            order.Lines = buildResult.Lines;
+            // Remove existing lines and persist the deletes BEFORE inserting the new ones,
+            // to avoid EF concurrency issues from replacing the tracked collection in one round-trip.
+            if (order.Lines.Count > 0)
+            {
+                db.OrderLines.RemoveRange(order.Lines);
+                await db.SaveChangesAsync(ct);
+            }
+
+            foreach (var line in buildResult.Lines)
+            {
+                line.OrderId = order.Id;
+                order.Lines.Add(line);
+            }
             order.Notes = string.IsNullOrWhiteSpace(req.Notes) ? null : req.Notes.Trim();
             order.UpdatedAt = DateTimeOffset.UtcNow;
             await db.SaveChangesAsync(ct);
