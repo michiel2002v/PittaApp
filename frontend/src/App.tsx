@@ -4,6 +4,7 @@ import { OrderRoundAdmin } from './OrderRoundAdmin'
 import { PlaceOrder } from './PlaceOrder'
 import { MyOrderHistory } from './MyOrderHistory'
 import { AdminOrderOverview } from './AdminOrderOverview'
+import { AdminPanel } from './AdminPanel'
 
 interface MeResponse {
   id: string
@@ -94,17 +95,61 @@ function IbanOnboarding({ onSaved }: { onSaved: (me: MeResponse) => void }) {
   )
 }
 
-function Profile({ me }: { me: MeResponse }) {
+function Profile({ me, onRefresh }: { me: MeResponse; onRefresh: () => void }) {
+  const [balance, setBalance] = useState<number | null>(null)
+  const [editing, setEditing] = useState(false)
+  const [newIban, setNewIban] = useState(me.iban || '')
+  const [err, setErr] = useState<string | null>(null)
+
+  useEffect(() => {
+    api('/me/balance').then(r => r.ok ? r.json() : null).then(d => setBalance(d?.balanceCents ?? 0))
+  }, [])
+
+  const saveIban = async () => {
+    setErr(null)
+    const res = await api('/me/iban', { method: 'PUT', body: JSON.stringify({ iban: newIban }) })
+    if (res.ok) { setEditing(false); onRefresh() }
+    else {
+      const e = await res.json().catch(() => null)
+      setErr(e?.error ?? `HTTP ${res.status}`)
+    }
+  }
+
   const signOut = () => {
     window.location.href = '/MicrosoftIdentity/Account/SignOut'
   }
+  const b = balance ?? 0
   return (
     <section>
       <h2>Profiel</h2>
+      {balance !== null && (
+        <div style={{
+          padding: '1rem', marginBottom: 12, borderRadius: 8,
+          background: b > 0 ? '#fee2e2' : b < 0 ? '#d1fae5' : '#f3f4f6',
+          fontSize: '1.1rem', fontWeight: 'bold',
+        }}>
+          💶 Saldo: €{(Math.abs(b) / 100).toFixed(2)} {b > 0 ? '(te betalen)' : b < 0 ? '(tegoed)' : '(netjes!)'}
+        </div>
+      )}
       <ul style={{ lineHeight: 1.8 }}>
         <li><strong>Naam:</strong> {me.displayName}</li>
         <li><strong>E-mail:</strong> {me.email}</li>
-        <li><strong>IBAN:</strong> <code>{formatIban(me.iban)}</code></li>
+        <li>
+          <strong>IBAN:</strong>{' '}
+          {editing ? (
+            <>
+              <input value={newIban} onChange={e => setNewIban(e.target.value)} style={{ fontFamily: 'monospace', padding: 4 }} />
+              <button type="button" style={{ ...secondaryButton, padding: '0.3rem 0.6rem', marginLeft: 6 }} onClick={saveIban}>Opslaan</button>
+              <button type="button" style={{ ...secondaryButton, padding: '0.3rem 0.6rem', marginLeft: 4 }} onClick={() => setEditing(false)}>X</button>
+              {err && <div style={{ color: 'crimson' }}>{err}</div>}
+            </>
+          ) : (
+            <>
+              <code>{formatIban(me.iban)}</code>
+              <button type="button" style={{ ...secondaryButton, padding: '0.2rem 0.5rem', marginLeft: 8, fontSize: '0.85rem' }} onClick={() => setEditing(true)}>Wijzig</button>
+            </>
+          )}
+        </li>
         <li><strong>Rol:</strong> {me.isAdmin ? '👑 Admin' : 'Gebruiker'}</li>
       </ul>
       <button type="button" style={secondaryButton} onClick={signOut}>
@@ -140,12 +185,13 @@ export default function App() {
       {error && <p style={{ color: 'crimson' }}>API-fout: {error}</p>}
       {!me && !error && <p>Bezig met laden…</p>}
       {me && !me.iban && <IbanOnboarding onSaved={setMe} />}
-      {me && me.iban && <Profile me={me} />}
+      {me && me.iban && <Profile me={me} onRefresh={() => api('/me/').then(r => r.json()).then(setMe)} />}
       {me && me.iban && <PlaceOrder />}
       {me && me.iban && <MyOrderHistory />}
       {me && me.iban && me.isAdmin && <AdminOrderOverview />}
       {me && me.iban && me.isAdmin && <OrderRoundAdmin />}
       {me && me.iban && me.isAdmin && <CatalogAdmin />}
+      {me && me.iban && me.isAdmin && <AdminPanel />}
     </main>
   )
 }

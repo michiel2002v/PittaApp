@@ -15,6 +15,9 @@ public class AppDbContext : DbContext
     public DbSet<OrderRound> OrderRounds => Set<OrderRound>();
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderLine> OrderLines => Set<OrderLine>();
+    public DbSet<LedgerEntry> LedgerEntries => Set<LedgerEntry>();
+    public DbSet<CsvImport> CsvImports => Set<CsvImport>();
+    public DbSet<BankTransaction> BankTransactions => Set<BankTransaction>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -53,6 +56,28 @@ public class AppDbContext : DbContext
             b.HasIndex(o => new { o.OrderRoundId, o.UserId }).IsUnique();
             b.HasIndex(o => o.UserId);
             b.HasIndex(o => o.IsPaid);
+        });
+
+        modelBuilder.Entity<LedgerEntry>(b =>
+        {
+            b.HasOne(l => l.User).WithMany().HasForeignKey(l => l.UserId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(l => l.Order).WithMany().HasForeignKey(l => l.OrderId).OnDelete(DeleteBehavior.SetNull);
+            b.HasOne(l => l.BankTransaction).WithMany().HasForeignKey(l => l.BankTransactionId).OnDelete(DeleteBehavior.SetNull);
+            b.Property(l => l.EntryType).HasConversion<int>();
+            b.HasIndex(l => l.UserId);
+            b.HasIndex(l => l.OrderId).IsUnique().HasFilter("\"OrderId\" IS NOT NULL");
+        });
+
+        modelBuilder.Entity<CsvImport>(b =>
+        {
+            b.HasIndex(c => c.FileName).IsUnique();
+            b.HasMany(c => c.Transactions).WithOne(t => t.CsvImport).HasForeignKey(t => t.CsvImportId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<BankTransaction>(b =>
+        {
+            b.HasOne(t => t.MatchedUser).WithMany().HasForeignKey(t => t.MatchedUserId).OnDelete(DeleteBehavior.SetNull);
+            b.HasIndex(t => t.MatchedUserId);
         });
     }
 }
