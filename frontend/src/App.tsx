@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { CatalogAdmin } from './CatalogAdmin'
+import { OrderRoundAdmin } from './OrderRoundAdmin'
 
 interface MeResponse {
   id: string
@@ -137,6 +138,7 @@ export default function App() {
       {!me && !error && <p>Bezig met laden…</p>}
       {me && !me.iban && <IbanOnboarding onSaved={setMe} />}
       {me && me.iban && <Profile me={me} />}
+      {me && me.iban && me.isAdmin && <OrderRoundAdmin />}
       {me && me.iban && me.isAdmin && <CatalogAdmin />}
     </main>
   )
