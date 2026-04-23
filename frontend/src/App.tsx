@@ -241,6 +241,14 @@ export default function App() {
           </div>
           {me && (
             <div className="user-pill">
+              {balance !== null && (
+                <span
+                  className={`badge ${balance > 0 ? 'badge-danger' : balance < 0 ? 'badge-success' : 'badge-info'}`}
+                  title={balance > 0 ? 'Openstaand bedrag' : balance < 0 ? 'Jouw tegoed' : 'Saldo'}
+                >
+                  €{(Math.abs(balance) / 100).toFixed(2)}
+                </span>
+              )}
               <span className="name">{me.displayName}{me.isAdmin ? ' 👑' : ''}</span>
               <div className="avatar" title={me.email}>{initials}</div>
               <button type="button" onClick={signOut} style={{ padding: '0.3rem 0.7rem', fontSize: '0.8rem' }}>

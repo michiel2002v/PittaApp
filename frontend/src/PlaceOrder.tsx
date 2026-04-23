@@ -49,6 +49,7 @@ export function PlaceOrder() {
   const [lineRemark, setLineRemark] = useState('')
   const [lines, setLines] = useState<LineInput[]>([])
   const [orderNotes, setOrderNotes] = useState('')
+  const [editingOrderId, setEditingOrderId] = useState<string | null>(null)
 
   type LineInput = {
     itemSizeId: string; itemTypeId: string; sauceIds: string[]
@@ -125,9 +126,10 @@ export function PlaceOrder() {
         })),
         notes: orderNotes.trim() || null,
       }
-      const isUpdate = !!order
+      const targetId = editingOrderId ?? order?.id
+      const isUpdate = !!targetId
       const res = isUpdate
-        ? await api(`/orders/${order!.id}`, { method: 'PUT', body: JSON.stringify(body) })
+        ? await api(`/orders/${targetId}`, { method: 'PUT', body: JSON.stringify(body) })
         : await api('/orders', { method: 'POST', body: JSON.stringify(body) })
 
       if (!res.ok) {
@@ -138,6 +140,7 @@ export function PlaceOrder() {
       const saved = await res.json() as OrderResponse
       setOrder(saved)
       setLines([])
+      setEditingOrderId(null)
     } catch (e) { setError(String(e)) }
     finally { setSaving(false) }
   }
@@ -196,7 +199,30 @@ export function PlaceOrder() {
           <p><strong>Totaal: {cents(order.totalCents)}</strong>{order.notes ? ` — ${order.notes}` : ''}</p>
           {round.isAcceptingOrders && (
             <div style={{ display: 'flex', gap: 8 }}>
-              <button type="button" style={primaryBtn} onClick={() => { setOrder(null); setLines([]) }}>
+              <button type="button" style={primaryBtn} onClick={() => {
+                if (!order || !menu) return
+                // Preload existing order lines into the builder, then hide the summary.
+                setEditingOrderId(order.id)
+                setOrderNotes(order.notes ?? '')
+                const preloaded: LineInput[] = order.lines.map(l => {
+                  const item = menu.items.find(i => i.sizes.some(s => s.id === l.itemSizeId))
+                  const size = item?.sizes.find(s => s.id === l.itemSizeId)
+                  const type = item?.types.find(t => t.id === l.itemTypeId)
+                  return {
+                    itemSizeId: l.itemSizeId,
+                    itemTypeId: l.itemTypeId,
+                    sauceIds: [],
+                    remark: l.remark ?? '',
+                    displayItem: l.itemName,
+                    displaySize: l.sizeName,
+                    displayType: l.typeName,
+                    displaySauces: l.saucesText,
+                    displayPrice: (size?.priceCents ?? 0) + (type?.surchargeCents ?? 0),
+                  }
+                })
+                setLines(preloaded)
+                setOrder(null)
+              }}>
                 Wijzigen
               </button>
               <button type="button" style={dangerBtn} onClick={deleteOrder} disabled={saving}>
@@ -210,7 +236,7 @@ export function PlaceOrder() {
       {/* Order builder — show when no existing order or editing */}
       {!order && round.isAcceptingOrders && menu && (
         <div style={cardStyle}>
-          <h3>{lines.length > 0 ? 'Bestelling aanpassen' : 'Nieuwe bestelling'}</h3>
+          <h3>{editingOrderId ? 'Bestelling wijzigen' : lines.length > 0 ? 'Bestelling aanpassen' : 'Nieuwe bestelling'}</h3>
 
           {/* Line items already added */}
           {lines.length > 0 && (
@@ -310,9 +336,16 @@ export function PlaceOrder() {
                   placeholder="bv. ik ben er pas om 12:30" style={{ ...selectStyle, width: '100%' }} />
               </label>
               <p><strong>Totaal: {cents(lines.reduce((s, l) => s + l.displayPrice, 0))}</strong></p>
-              <button type="button" style={primaryBtn} onClick={submit} disabled={saving}>
-                {saving ? 'Bezig…' : 'Bestelling plaatsen'}
-              </button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="button" style={primaryBtn} onClick={submit} disabled={saving}>
+                  {saving ? 'Bezig…' : editingOrderId ? 'Wijzigingen opslaan' : 'Bestelling plaatsen'}
+                </button>
+                {editingOrderId && (
+                  <button type="button" onClick={() => { setEditingOrderId(null); setLines([]); load() }}>
+                    Annuleren
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>
