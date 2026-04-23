@@ -1,11 +1,4 @@
 import { useEffect, useState } from 'react'
-import {
-  AuthenticatedTemplate,
-  UnauthenticatedTemplate,
-  useMsal,
-} from '@azure/msal-react'
-import { loginRequest } from './auth/msalConfig'
-import { apiFetch } from './auth/apiClient'
 
 interface MeResponse {
   id: string
@@ -15,19 +8,24 @@ interface MeResponse {
   isAdmin: boolean
 }
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:5080'
+async function api(path: string, init: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(init.headers)
+  if (init.body && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json')
+  }
+  return fetch(path, { ...init, headers, credentials: 'include' })
+}
 
 function LoginScreen() {
-  const { instance } = useMsal()
+  const signIn = () => {
+    const returnUrl = encodeURIComponent(window.location.pathname + window.location.search)
+    window.location.href = `/MicrosoftIdentity/Account/SignIn?returnUrl=${returnUrl}`
+  }
   return (
     <main style={pageStyle}>
       <h1>🥙 Pitta Moestie</h1>
       <p>Log in met je Vintecc-account om te beginnen.</p>
-      <button
-        type="button"
-        style={primaryButton}
-        onClick={() => instance.loginRedirect(loginRequest).catch(console.error)}
-      >
+      <button type="button" style={primaryButton} onClick={signIn}>
         Sign in with Microsoft
       </button>
     </main>
@@ -44,7 +42,7 @@ function IbanOnboarding({ onSaved }: { onSaved: (me: MeResponse) => void }) {
     setSubmitting(true)
     setError(null)
     try {
-      const res = await apiFetch('/me/iban', {
+      const res = await api('/me/iban', {
         method: 'PUT',
         body: JSON.stringify({ iban }),
       })
@@ -57,8 +55,7 @@ function IbanOnboarding({ onSaved }: { onSaved: (me: MeResponse) => void }) {
         return
       }
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const me = (await res.json()) as MeResponse
-      onSaved(me)
+      onSaved((await res.json()) as MeResponse)
     } catch (err) {
       setError(String(err))
     } finally {
@@ -92,7 +89,10 @@ function IbanOnboarding({ onSaved }: { onSaved: (me: MeResponse) => void }) {
   )
 }
 
-function Profile({ me, onSignOut }: { me: MeResponse; onSignOut: () => void }) {
+function Profile({ me }: { me: MeResponse }) {
+  const signOut = () => {
+    window.location.href = '/MicrosoftIdentity/Account/SignOut'
+  }
   return (
     <section>
       <h2>Profiel</h2>
@@ -102,29 +102,32 @@ function Profile({ me, onSignOut }: { me: MeResponse; onSignOut: () => void }) {
         <li><strong>IBAN:</strong> <code>{formatIban(me.iban)}</code></li>
         <li><strong>Rol:</strong> {me.isAdmin ? '👑 Admin' : 'Gebruiker'}</li>
       </ul>
-      <button type="button" style={secondaryButton} onClick={onSignOut}>
+      <button type="button" style={secondaryButton} onClick={signOut}>
         Uitloggen
       </button>
     </section>
   )
 }
 
-function AuthedShell() {
-  const { instance } = useMsal()
+export default function App() {
   const [me, setMe] = useState<MeResponse | null>(null)
+  const [unauthenticated, setUnauthenticated] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    apiFetch('/me/')
-      .then((r) => {
+    api('/me/')
+      .then(async (r) => {
+        if (r.status === 401) {
+          setUnauthenticated(true)
+          return
+        }
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
-        return r.json() as Promise<MeResponse>
+        setMe((await r.json()) as MeResponse)
       })
-      .then(setMe)
       .catch((e) => setError(String(e)))
   }, [])
 
-  const signOut = () => instance.logoutRedirect().catch(console.error)
+  if (unauthenticated) return <LoginScreen />
 
   return (
     <main style={pageStyle}>
@@ -132,24 +135,8 @@ function AuthedShell() {
       {error && <p style={{ color: 'crimson' }}>API-fout: {error}</p>}
       {!me && !error && <p>Bezig met laden…</p>}
       {me && !me.iban && <IbanOnboarding onSaved={setMe} />}
-      {me && me.iban && <Profile me={me} onSignOut={signOut} />}
+      {me && me.iban && <Profile me={me} />}
     </main>
-  )
-}
-
-export default function App() {
-  return (
-    <>
-      <UnauthenticatedTemplate>
-        <LoginScreen />
-      </UnauthenticatedTemplate>
-      <AuthenticatedTemplate>
-        <AuthedShell />
-      </AuthenticatedTemplate>
-      <footer style={{ position: 'fixed', bottom: 8, right: 12, color: '#aaa', fontSize: '0.75rem' }}>
-        API: {API_BASE}
-      </footer>
-    </>
   )
 }
 

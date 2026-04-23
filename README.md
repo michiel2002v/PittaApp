@@ -13,20 +13,35 @@ docker compose up --build
 - Backend:  http://localhost:5080/health
 - Postgres: localhost:5432 (user/pass: `pittaapp`)
 
-## Local development (without Docker)
+## Local development (SSO login flow)
 
-You need: .NET 10 SDK, Node 22, a running PostgreSQL on `localhost:5432` with database `pittaapp`.
+You need: .NET 10 SDK, Node 22, PostgreSQL via `docker compose up -d db`.
 
 ```powershell
-# Backend
+# Backend (HTTPS on 7227)
 cd backend\PittaApp.Api
-dotnet run
+dotnet run --launch-profile https
 
-# Frontend (in a separate terminal)
+# Frontend (HTTPS on 48971; in a separate terminal)
 cd frontend
 npm install
 npm run dev
 ```
+
+Open <https://localhost:48971>. The browser will warn about the self-signed cert — accept it once.
+
+### Entra ID app registration
+
+Under **Authentication → Add a platform → Web**, add:
+
+- Redirect URIs:
+  - `https://localhost:48971/signin-oidc`
+  - `https://localhost:7227/signin-oidc`
+- Front-channel / post-logout redirect URIs:
+  - `https://localhost:48971/signout-callback-oidc`
+  - `https://localhost:7227/signout-callback-oidc`
+
+Client secret is stored locally via `dotnet user-secrets` (key `AzureAd:ClientSecret`).
 
 ## Project layout
 
