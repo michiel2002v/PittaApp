@@ -70,8 +70,8 @@ public static class OrderEndpoints
             if (user is null) return Results.Unauthorized();
 
             var order = await db.Orders
-                .Include(o => o.Lines)
                 .Include(o => o.OrderRound)
+                .AsNoTracking()
                 .SingleOrDefaultAsync(o => o.Id == id, ct);
             if (order is null) return Results.NotFound();
             if (order.UserId != user.Id) return Results.Forbid();
@@ -84,24 +84,29 @@ public static class OrderEndpoints
             var buildResult = await BuildLinesAsync(db, req.Lines, ct);
             if (buildResult.Error is not null) return buildResult.Error;
 
-            // Remove existing lines and persist the deletes BEFORE inserting the new ones,
-            // to avoid EF concurrency issues from replacing the tracked collection in one round-trip.
-            if (order.Lines.Count > 0)
-            {
-                db.OrderLines.RemoveRange(order.Lines);
-                await db.SaveChangesAsync(ct);
-            }
+            // Bypass EF change tracking: delete old lines + update order fields via raw UPDATE/DELETE,
+            // then insert the new lines. Avoids optimistic-concurrency mismatches.
+            await db.OrderLines.Where(l => l.OrderId == order.Id).ExecuteDeleteAsync(ct);
+
+            var notes = string.IsNullOrWhiteSpace(req.Notes) ? null : req.Notes.Trim();
+            var now = DateTimeOffset.UtcNow;
+            await db.Orders.Where(o => o.Id == order.Id)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(o => o.Notes, notes)
+                    .SetProperty(o => o.UpdatedAt, now), ct);
 
             foreach (var line in buildResult.Lines)
             {
                 line.OrderId = order.Id;
-                order.Lines.Add(line);
+                db.OrderLines.Add(line);
             }
-            order.Notes = string.IsNullOrWhiteSpace(req.Notes) ? null : req.Notes.Trim();
-            order.UpdatedAt = DateTimeOffset.UtcNow;
             await db.SaveChangesAsync(ct);
 
-            return Results.Ok(ToDto(order));
+            var reloaded = await db.Orders
+                .Include(o => o.Lines)
+                .AsNoTracking()
+                .SingleAsync(o => o.Id == order.Id, ct);
+            return Results.Ok(ToDto(reloaded));
         });
 
         // Delete own open order.
