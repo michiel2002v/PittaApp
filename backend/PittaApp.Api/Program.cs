@@ -121,6 +121,7 @@ app.MapGet("/health", async (AppDbContext db) =>
 
 app.MapUserEndpoints();
 app.MapCatalogEndpoints();
+app.MapOrderRoundEndpoints();
 
 // Microsoft.Identity.UI sign-in / sign-out controller actions.
 app.MapControllers();

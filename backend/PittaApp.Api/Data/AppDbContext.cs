@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
     public DbSet<ItemSize> ItemSizes => Set<ItemSize>();
     public DbSet<ItemType> ItemTypes => Set<ItemType>();
     public DbSet<Sauce> Sauces => Set<Sauce>();
+    public DbSet<OrderRound> OrderRounds => Set<OrderRound>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -33,5 +34,12 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<ItemSize>(b => b.HasIndex(s => new { s.ItemId, s.Name }));
         modelBuilder.Entity<ItemType>(b => b.HasIndex(t => new { t.ItemId, t.Name }));
         modelBuilder.Entity<Sauce>(b => b.HasIndex(s => s.Name));
+
+        modelBuilder.Entity<OrderRound>(b =>
+        {
+            b.HasIndex(r => r.DeliveryDate);
+            b.HasIndex(r => r.Status);
+            b.Property(r => r.Status).HasConversion<int>();
+        });
     }
 }
