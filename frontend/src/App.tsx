@@ -298,14 +298,7 @@ export default function App() {
 
             {tab === 'history' && <MyOrderHistory />}
 
-            {tab === 'admin' && me!.isAdmin && (
-              <>
-                <AdminOrderOverview />
-                <OrderRoundAdmin />
-                <CatalogAdmin />
-                <AdminPanel />
-              </>
-            )}
+            {tab === 'admin' && me!.isAdmin && <AdminHome />}
           </>
         )}
       </main>
@@ -320,4 +313,82 @@ export default function App() {
 function formatIban(iban: string | null): string {
   if (!iban) return '—'
   return iban.replace(/(.{4})/g, '$1 ').trim()
+}
+
+// ─────────────────────────────────────────────────────────────
+// Admin home — tile-based section navigation
+// ─────────────────────────────────────────────────────────────
+type AdminSection = 'orders' | 'rounds' | 'catalog' | 'users'
+
+const ADMIN_TILES: { key: AdminSection; emoji: string; title: string; subtitle: string }[] = [
+  { key: 'orders', emoji: '📋', title: 'Bestellingen', subtitle: 'Overzicht per ronde · betaalstatus' },
+  { key: 'rounds', emoji: '🗓️', title: 'Bestelrondes', subtitle: 'Aanmaken · sluiten · leveringskosten · weekly' },
+  { key: 'catalog', emoji: '🥙', title: 'Catalogus', subtitle: 'Items, maten, types & sauzen beheren' },
+  { key: 'users', emoji: '⚙️', title: 'Gebruikers & financiën', subtitle: 'Saldo · IBAN · admins · wanbetalers · imports' },
+]
+
+function AdminHome() {
+  const [section, setSection] = useState<AdminSection | null>(null)
+
+  if (section === null) {
+    return (
+      <section>
+        <h2>⚙️ Admin</h2>
+        <p style={{ color: 'var(--color-text-muted)', marginBottom: '1.25rem' }}>
+          Kies een sectie om te beheren.
+        </p>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gap: '1rem',
+        }}>
+          {ADMIN_TILES.map(t => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setSection(t.key)}
+              style={{
+                textAlign: 'left',
+                padding: '1.25rem',
+                background: 'var(--color-surface)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-lg, 12px)',
+                cursor: 'pointer',
+                boxShadow: 'var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.05))',
+                transition: 'transform 0.15s, box-shadow 0.15s, border-color 0.15s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)'
+                e.currentTarget.style.borderColor = 'var(--color-primary)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)'
+                e.currentTarget.style.borderColor = 'var(--color-border)'
+              }}
+            >
+              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>{t.emoji}</div>
+              <div style={{ fontWeight: 700, fontSize: '1.05rem', marginBottom: 4 }}>{t.title}</div>
+              <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>{t.subtitle}</div>
+            </button>
+          ))}
+        </div>
+      </section>
+    )
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setSection(null)}
+        style={{ marginBottom: '1rem', padding: '0.4rem 0.85rem', fontSize: '0.9rem' }}
+      >
+        ← Terug naar admin
+      </button>
+      {section === 'orders' && <AdminOrderOverview />}
+      {section === 'rounds' && <OrderRoundAdmin />}
+      {section === 'catalog' && <CatalogAdmin />}
+      {section === 'users' && <AdminPanel />}
+    </>
+  )
 }

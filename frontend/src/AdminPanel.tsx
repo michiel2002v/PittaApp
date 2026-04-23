@@ -47,6 +47,16 @@ export function AdminPanel() {
     else { setMsg('Fout bij aanpassen saldo') }
   }
 
+  const toggleAdmin = async (u: AdminUser) => {
+    const verb = u.isAdmin ? 'degraderen tot gewone gebruiker' : 'promoveren tot admin'
+    if (!confirm(`${u.displayName} ${verb}?`)) return
+    const res = await api(`/admin/users/${u.id}/admin`, {
+      method: 'PUT', body: JSON.stringify({ isAdmin: !u.isAdmin }),
+    })
+    if (res.ok || res.status === 204) { setMsg(`Rol bijgewerkt voor ${u.displayName}`); loadAll() }
+    else { setMsg('Fout bij rol-update') }
+  }
+
   const uploadCsv = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
     if (!f) return
@@ -100,7 +110,10 @@ export function AdminPanel() {
                 </td>
                 <td>
                   <button type="button" onClick={() => editIban(u)} style={{ padding: '0.25rem 0.6rem', fontSize: '0.8rem' }}>IBAN</button>{' '}
-                  <button type="button" onClick={() => adjustBalance(u)} style={{ padding: '0.25rem 0.6rem', fontSize: '0.8rem' }}>€ ±</button>
+                  <button type="button" onClick={() => adjustBalance(u)} style={{ padding: '0.25rem 0.6rem', fontSize: '0.8rem' }}>€ ±</button>{' '}
+                  <button type="button" onClick={() => toggleAdmin(u)} style={{ padding: '0.25rem 0.6rem', fontSize: '0.8rem' }}>
+                    {u.isAdmin ? '↓ Demoten' : '↑ Promoten'}
+                  </button>
                 </td>
               </tr>
             ))}

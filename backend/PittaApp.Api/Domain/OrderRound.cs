@@ -22,6 +22,12 @@ public class OrderRound
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? DeliveredAt { get; set; }
 
+    /// <summary>Total delivery cost (in cents) to be split across all orderers when the round is locked.</summary>
+    public int DeliveryCostCents { get; set; }
+
+    /// <summary>If true, a follow-up round (delivery date +7 days, same cutoff time) is auto-created when this round is delivered.</summary>
+    public bool IsRecurringWeekly { get; set; }
+
     /// <summary>The effective status considering the cutoff time.</summary>
     public OrderRoundStatus EffectiveStatus(DateTimeOffset now)
     {

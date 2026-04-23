@@ -17,6 +17,8 @@ interface OrderRound {
   isAcceptingOrders: boolean
   notes: string | null
   deliveredAt: string | null
+  deliveryCostCents: number
+  isRecurringWeekly: boolean
 }
 
 export function OrderRoundAdmin() {
@@ -25,6 +27,8 @@ export function OrderRoundAdmin() {
   const [deliveryDate, setDeliveryDate] = useState('')
   const [cutoffAt, setCutoffAt] = useState('')
   const [notes, setNotes] = useState('')
+  const [deliveryCostEur, setDeliveryCostEur] = useState('0')
+  const [isRecurringWeekly, setIsRecurringWeekly] = useState(false)
 
   const reload = useCallback(async () => {
     setError(null)
@@ -49,6 +53,8 @@ export function OrderRoundAdmin() {
       deliveryDate,
       cutoffAt: new Date(cutoffAt).toISOString(),
       notes: notes || null,
+      deliveryCostCents: Math.round((parseFloat(deliveryCostEur.replace(',', '.')) || 0) * 100),
+      isRecurringWeekly,
     }
     const res = await api('/admin/order-rounds/', { method: 'POST', body: JSON.stringify(body) })
     if (res.status === 422) {
@@ -56,7 +62,7 @@ export function OrderRoundAdmin() {
       return
     }
     if (!res.ok) { setError(`HTTP ${res.status}`); return }
-    setDeliveryDate(''); setCutoffAt(''); setNotes('')
+    setDeliveryDate(''); setCutoffAt(''); setNotes(''); setDeliveryCostEur('0'); setIsRecurringWeekly(false)
     await reload()
   }
 
@@ -84,6 +90,15 @@ export function OrderRoundAdmin() {
         <label>Notities
           <input type="text" style={field} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optioneel" />
         </label>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+          <label>Leveringskosten (€, gesplitst per besteller)
+            <input type="number" min="0" step="0.50" style={field} value={deliveryCostEur} onChange={(e) => setDeliveryCostEur(e.target.value)} />
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, alignSelf: 'end', paddingBottom: 6 }}>
+            <input type="checkbox" checked={isRecurringWeekly} onChange={(e) => setIsRecurringWeekly(e.target.checked)} />
+            🔁 Wekelijks herhalen
+          </label>
+        </div>
         <button type="button" style={primary} onClick={create}>+ Ronde aanmaken</button>
       </div>
 
@@ -97,6 +112,10 @@ export function OrderRoundAdmin() {
               <span style={badge(r.effectiveStatus)}>{r.effectiveStatus}</span>
             </div>
             {r.notes && <p style={{ margin: '4px 0', color: '#4b5563' }}>{r.notes}</p>}
+            <div style={{ display: 'flex', gap: 12, fontSize: '0.85rem', color: '#6b7280', marginTop: 4 }}>
+              {r.deliveryCostCents > 0 && <span>🚚 Leveringskosten: €{(r.deliveryCostCents / 100).toFixed(2)} (split)</span>}
+              {r.isRecurringWeekly && <span>🔁 Wekelijks herhalend</span>}
+            </div>
             <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
               {r.status === 'Open' && <button type="button" style={small} onClick={() => act(r.id, 'lock')}>🔒 Sluiten</button>}
               {r.status !== 'Delivered' && r.status !== 'Cancelled' && (

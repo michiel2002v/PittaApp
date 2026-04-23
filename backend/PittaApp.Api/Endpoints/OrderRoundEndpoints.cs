@@ -49,6 +49,8 @@ public static class OrderRoundEndpoints
                 DeliveryDate = req.DeliveryDate,
                 CutoffAt = req.CutoffAt,
                 Notes = string.IsNullOrWhiteSpace(req.Notes) ? null : req.Notes.Trim(),
+                DeliveryCostCents = Math.Max(0, req.DeliveryCostCents),
+                IsRecurringWeekly = req.IsRecurringWeekly,
             };
             db.OrderRounds.Add(round);
             await db.SaveChangesAsync(ct);
@@ -62,6 +64,8 @@ public static class OrderRoundEndpoints
             round.DeliveryDate = req.DeliveryDate;
             round.CutoffAt = req.CutoffAt;
             round.Notes = string.IsNullOrWhiteSpace(req.Notes) ? null : req.Notes.Trim();
+            round.DeliveryCostCents = Math.Max(0, req.DeliveryCostCents);
+            round.IsRecurringWeekly = req.IsRecurringWeekly;
             await db.SaveChangesAsync(ct);
             return Results.Ok(ToDto(round, DateTimeOffset.UtcNow));
         });
@@ -96,6 +100,30 @@ public static class OrderRoundEndpoints
                 }
             }
 
+            // Split delivery cost across all orderers (idempotent on the reason text).
+            if (round.DeliveryCostCents > 0 && orders.Count > 0)
+            {
+                var deliveryReason = $"Leveringskosten ronde {round.DeliveryDate}";
+                var alreadyBilled = await db.LedgerEntries.AnyAsync(l => l.Reason == deliveryReason, ct);
+                if (!alreadyBilled)
+                {
+                    var perPerson = round.DeliveryCostCents / orders.Count;
+                    var remainder = round.DeliveryCostCents - (perPerson * orders.Count);
+                    for (int i = 0; i < orders.Count; i++)
+                    {
+                        var share = perPerson + (i < remainder ? 1 : 0);
+                        if (share <= 0) continue;
+                        db.LedgerEntries.Add(new LedgerEntry
+                        {
+                            UserId = orders[i].UserId,
+                            EntryType = LedgerEntryType.ManualAdjustment,
+                            AmountCents = share,
+                            Reason = deliveryReason,
+                        });
+                    }
+                }
+            }
+
             await db.SaveChangesAsync(ct);
             return Results.Ok(ToDto(round, DateTimeOffset.UtcNow));
         });
@@ -108,6 +136,26 @@ public static class OrderRoundEndpoints
                 return Results.Conflict(new { error = "Cancelled round cannot be delivered." });
             round.Status = OrderRoundStatus.Delivered;
             round.DeliveredAt = DateTimeOffset.UtcNow;
+
+            // Auto-create the next weekly round if marked recurring (idempotent on delivery date).
+            if (round.IsRecurringWeekly)
+            {
+                var nextDate = round.DeliveryDate.AddDays(7);
+                var exists = await db.OrderRounds.AnyAsync(r => r.DeliveryDate == nextDate, ct);
+                if (!exists)
+                {
+                    db.OrderRounds.Add(new OrderRound
+                    {
+                        DeliveryDate = nextDate,
+                        CutoffAt = round.CutoffAt.AddDays(7),
+                        Notes = round.Notes,
+                        DeliveryCostCents = round.DeliveryCostCents,
+                        IsRecurringWeekly = true,
+                        Status = OrderRoundStatus.Open,
+                    });
+                }
+            }
+
             await db.SaveChangesAsync(ct);
 
             // Send Teams notification
@@ -133,7 +181,8 @@ public static class OrderRoundEndpoints
 
     private static OrderRoundResponse ToDto(OrderRound r, DateTimeOffset now) =>
         new(r.Id, r.DeliveryDate, r.CutoffAt, r.Status.ToString(),
-            r.EffectiveStatus(now).ToString(), r.IsAcceptingOrders(now), r.Notes, r.DeliveredAt);
+            r.EffectiveStatus(now).ToString(), r.IsAcceptingOrders(now), r.Notes, r.DeliveredAt,
+            r.DeliveryCostCents, r.IsRecurringWeekly);
 }
 
 public record OrderRoundResponse(
@@ -144,6 +193,13 @@ public record OrderRoundResponse(
     string EffectiveStatus,
     bool IsAcceptingOrders,
     string? Notes,
-    DateTimeOffset? DeliveredAt);
+    DateTimeOffset? DeliveredAt,
+    int DeliveryCostCents,
+    bool IsRecurringWeekly);
 
-public record OrderRoundWriteRequest(DateOnly DeliveryDate, DateTimeOffset CutoffAt, string? Notes);
+public record OrderRoundWriteRequest(
+    DateOnly DeliveryDate,
+    DateTimeOffset CutoffAt,
+    string? Notes,
+    int DeliveryCostCents = 0,
+    bool IsRecurringWeekly = false);
