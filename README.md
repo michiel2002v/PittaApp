@@ -1,3 +1,42 @@
+# PittaApp 🥙
+
+Web app to replace the Pitta Moestie Excel — orders, items, payments, debt tracking.
+
+## Quick start (Docker)
+
+```powershell
+copy .env.example .env
+docker compose up --build
+```
+
+- Frontend: http://localhost:5173
+- Backend:  http://localhost:5080/health
+- Postgres: localhost:5432 (user/pass: `pittaapp`)
+
+## Local development (without Docker)
+
+You need: .NET 10 SDK, Node 22, a running PostgreSQL on `localhost:5432` with database `pittaapp`.
+
+```powershell
+# Backend
+cd backend\PittaApp.Api
+dotnet run
+
+# Frontend (in a separate terminal)
+cd frontend
+npm install
+npm run dev
+```
+
+## Project layout
+
+- `backend/` — .NET 10 ASP.NET Core minimal API
+- `frontend/` — React + TypeScript (Vite)
+- `docs/features/` — feature specifications (SSDLC)
+- `docker-compose.yml` — full local stack
+
+---
+
 # Capture.Agents.Template
 
 > Monorepo template for GitHub Copilot agents, skills, and SSDLC rules.
