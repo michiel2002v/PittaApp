@@ -73,6 +73,29 @@ public static class OrderRoundEndpoints
             if (round.Status != OrderRoundStatus.Open)
                 return Results.Conflict(new { error = $"Round is already {round.Status}." });
             round.Status = OrderRoundStatus.Locked;
+
+            // Create ledger debits for all orders in this round (if none yet).
+            var orders = await db.Orders
+                .Include(o => o.Lines)
+                .Where(o => o.OrderRoundId == round.Id && o.Status == OrderStatus.Open)
+                .ToListAsync(ct);
+            foreach (var order in orders)
+            {
+                order.Status = OrderStatus.Locked;
+                var existingDebit = await db.LedgerEntries.AnyAsync(l => l.OrderId == order.Id, ct);
+                if (!existingDebit && order.TotalCents > 0)
+                {
+                    db.LedgerEntries.Add(new LedgerEntry
+                    {
+                        UserId = order.UserId,
+                        OrderId = order.Id,
+                        EntryType = LedgerEntryType.OrderDebit,
+                        AmountCents = order.TotalCents,
+                        Reason = $"Order lock: round {round.DeliveryDate}",
+                    });
+                }
+            }
+
             await db.SaveChangesAsync(ct);
             return Results.Ok(ToDto(round, DateTimeOffset.UtcNow));
         });

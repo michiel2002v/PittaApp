@@ -126,6 +126,7 @@ app.MapUserEndpoints();
 app.MapCatalogEndpoints();
 app.MapOrderRoundEndpoints();
 app.MapOrderEndpoints();
+app.MapLedgerEndpoints();
 
 // Microsoft.Identity.UI sign-in / sign-out controller actions.
 app.MapControllers();
