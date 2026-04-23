@@ -49,15 +49,6 @@ public static class UserEndpoints
 
         var admin = app.MapGroup("/admin").RequireAuthorization("admin");
 
-        admin.MapGet("/users", async (AppDbContext db, CancellationToken ct) =>
-        {
-            var users = await db.Users
-                .OrderBy(u => u.DisplayName)
-                .Select(u => new MeResponse(u.Id, u.DisplayName, u.Email, u.Iban, u.IsAdmin))
-                .ToListAsync(ct);
-            return Results.Ok(users);
-        });
-
         admin.MapPut("/users/{id:guid}/admin", async (
             Guid id,
             SetAdminRequest body,
