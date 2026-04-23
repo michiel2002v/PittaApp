@@ -1,6 +1,6 @@
 {
   "name": "@vintecc/skills",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Vintecc company-wide agent skills registry CLI",
   "type": "commonjs",
   "main": "dist/index.js",
