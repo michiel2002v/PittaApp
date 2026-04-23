@@ -1,0 +1,36 @@
+{
+  "name": "@vintecc/skills",
+  "version": "0.1.1",
+  "description": "Vintecc company-wide agent skills registry CLI",
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "bin": {
+    "vintecc-skills": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^8.4.1",
+    "commander": "^12.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@vitest/coverage-v8": "^4.1.4",
+    "typescript": "^5.0.0",
+    "vitest": "^4.1.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/michiel2002v/Vintecc.Skills.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
