@@ -23,31 +23,37 @@ builder.Services
     .AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
     .AddMicrosoftIdentityWebApp(builder.Configuration.GetSection("AzureAd"));
 
+static bool IsApiPath(PathString path) =>
+    path.StartsWithSegments("/me")
+    || path.StartsWithSegments("/admin")
+    || path.StartsWithSegments("/api");
+
 builder.Services.Configure<CookieAuthenticationOptions>(
     CookieAuthenticationDefaults.AuthenticationScheme,
     opts =>
     {
         opts.Cookie.Name = "pittaapp.auth";
         opts.Cookie.SameSite = SameSiteMode.Lax;
-        opts.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        opts.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest; // HTTP in dev, HTTPS in prod
         opts.Cookie.HttpOnly = true;
-        // API calls get 401 JSON instead of an HTML redirect.
-        opts.Events.OnRedirectToLogin = ctx =>
+    });
+
+// Intercept OIDC challenges on API paths so XHR/fetch gets a clean 401 instead
+// of a 302 redirect to login.microsoftonline.com (which fails CORS preflight).
+builder.Services.Configure<OpenIdConnectOptions>(
+    OpenIdConnectDefaults.AuthenticationScheme,
+    opts =>
+    {
+        var originalRedirectToIdp = opts.Events.OnRedirectToIdentityProvider;
+        opts.Events.OnRedirectToIdentityProvider = async ctx =>
         {
-            if (ctx.Request.Path.StartsWithSegments("/me")
-                || ctx.Request.Path.StartsWithSegments("/admin")
-                || ctx.Request.Path.StartsWithSegments("/api"))
+            if (IsApiPath(ctx.Request.Path))
             {
                 ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                return Task.CompletedTask;
+                ctx.HandleResponse();
+                return;
             }
-            ctx.Response.Redirect(ctx.RedirectUri);
-            return Task.CompletedTask;
-        };
-        opts.Events.OnRedirectToAccessDenied = ctx =>
-        {
-            ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
-            return Task.CompletedTask;
+            if (originalRedirectToIdp is not null) await originalRedirectToIdp(ctx);
         };
     });
 
@@ -85,7 +91,6 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 

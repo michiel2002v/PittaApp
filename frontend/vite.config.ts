@@ -1,17 +1,15 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import basicSsl from '@vitejs/plugin-basic-ssl'
 
-const backend = 'https://localhost:7227'
+const backend = 'http://localhost:5080'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), basicSsl()],
+  plugins: [react()],
   server: {
-    port: 48971,
+    port: 5173,
     host: 'localhost',
     strictPort: true,
-    https: {},
     proxy: Object.fromEntries(
       [
         '/signin-oidc',
@@ -25,7 +23,6 @@ export default defineConfig({
         {
           target: backend,
           changeOrigin: false,
-          secure: false,
           xfwd: true,
         },
       ]),
