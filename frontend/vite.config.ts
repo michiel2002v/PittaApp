@@ -1,13 +1,13 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-const backend = 'http://localhost:5080'
+const backend = 'http://localhost:7227'
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 5173,
+    port: 48971,
     host: 'localhost',
     strictPort: true,
     proxy: Object.fromEntries(

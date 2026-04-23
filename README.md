@@ -18,28 +18,28 @@ docker compose up --build
 You need: .NET 10 SDK, Node 22, PostgreSQL via `docker compose up -d db`.
 
 ```powershell
-# Backend (HTTP on 5080)
+# Backend (HTTP on 7227)
 cd backend\PittaApp.Api
 dotnet run
 
-# Frontend (HTTP on 5173; in a separate terminal)
+# Frontend (HTTP on 48971; in a separate terminal)
 cd frontend
 npm install
 npm run dev
 ```
 
-Open <http://localhost:5173>.
+Open <http://localhost:48971>.
 
-### Entra ID app registration
+### Entra ID app registration (Web platform)
 
 Under **Authentication → Add a platform → Web**, add:
 
 - Redirect URIs:
-  - `http://localhost:5173/signin-oidc`
-  - `http://localhost:5080/signin-oidc`
+  - `http://localhost:48971/signin-oidc`
+  - `http://localhost:7227/signin-oidc`
 - Front-channel / post-logout redirect URIs:
-  - `http://localhost:5173/signout-callback-oidc`
-  - `http://localhost:5080/signout-callback-oidc`
+  - `http://localhost:48971/signout-callback-oidc`
+  - `http://localhost:7227/signout-callback-oidc`
 
 Client secret is stored locally via `dotnet user-secrets` (key `AzureAd:ClientSecret`).
 
